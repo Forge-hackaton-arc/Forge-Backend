@@ -4,9 +4,11 @@ import { validateDeliverable } from "@/lib/groqValidator";
 import { executeContract, pollTransaction } from "@/lib/circleWallets";
 import { CONTRACTS } from "@/lib/addresses";
 import { supabaseAdmin, recordValidation, recordReputation } from "@/lib/supabase";
+import { getNetwork } from "@/lib/network";
 import type { ValidateJobResponse, ApiError } from "@/lib/types";
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+  const network = getNetwork(req);
   const jobId = params.id;
   const body = await req.json().catch(() => ({}));
 
@@ -63,12 +65,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     // TEMP: evaluator wallet — must be different from the agent wallet (contract forbids self-feedback).
     const evaluatorWallet = { id: "749334cb-50a8-5508-b2eb-1f28d083d77d", address: "0xcf06a61700b1ea8eae6a87148473f4efec36088e", blockchain: "ARC-TESTNET" };
 
-    // 2. Evaluator wallet calls complete() to release escrow.
-    // `reason` must be bytes32 — we hash the reasoning string.
     const reasonBytes32 = keccak256(toBytes(result.reasoning));
     const { circleTransactionId: completeTxId } = await executeContract({
       walletId: evaluatorWallet.id,
-      contractAddress: CONTRACTS.agenticCommerce,
+      contractAddress: CONTRACTS[network].agenticCommerce,
       abiFunctionSignature: "complete(uint256,bytes32,bytes)",
       abiParameters: [jobId, reasonBytes32, "0x"],
     });
@@ -98,7 +98,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       const feedbackHash = keccak256(toBytes(result.reasoning));
       const { circleTransactionId: reputationTxId } = await executeContract({
         walletId: evaluatorWallet.id,
-        contractAddress: CONTRACTS.reputationRegistry,
+        contractAddress: CONTRACTS[network].reputationRegistry,
         abiFunctionSignature: "giveFeedback(uint256,int128,uint8,string,string,string,string,bytes32)",
         abiParameters: [
           numericAgentId,        // uint256 agentId (ERC-8004 token ID)
@@ -117,6 +117,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         agent_id: job.provider_agent_id,
         score: result.score,
         tx_hash: reputationTxHash,
+        network,
       });
     } catch (repErr) {
       // Non-blocking: job is already completed onchain. Log and continue.

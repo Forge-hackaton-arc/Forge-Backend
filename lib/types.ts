@@ -12,6 +12,13 @@ export type JobStatus =
   | "Rejected"
   | "Expired";
 
+export interface AgentListItem {
+  agentId: string;
+  walletAddress: string;
+  metadataUri: string | null;
+  createdAt: string;
+}
+
 export interface RegisterAgentRequest {
   metadataUri: string;
 }

@@ -1,8 +1,6 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import type { Network } from "./addresses";
 
-// Lazily instantiated so the app can build/start before real env vars are
-// filled in — createClient() throws immediately on an empty URL otherwise,
-// which breaks `next build`'s static route analysis.
 let _client: SupabaseClient | null = null;
 
 function getClient(): SupabaseClient {
@@ -16,8 +14,6 @@ function getClient(): SupabaseClient {
   return _client;
 }
 
-// Service role client proxy — used server-side only, never expose this key
-// to the frontend. The frontend app should use the anon/public key instead.
 export const supabaseAdmin = new Proxy({} as SupabaseClient, {
   get(_target, prop) {
     const client = getClient();
@@ -33,6 +29,7 @@ export async function upsertJob(job: {
   description: string;
   budget: string;
   status: string;
+  network: Network;
 }) {
   const { error } = await supabaseAdmin.from("jobs").upsert(job, { onConflict: "job_id" });
   if (error) throw new Error(`Supabase upsertJob failed: ${error.message}`);
@@ -60,6 +57,7 @@ export async function recordReputation(row: {
   agent_id: string;
   score: number;
   tx_hash: string;
+  network: Network;
 }) {
   const { error } = await supabaseAdmin.from("reputation").insert(row);
   if (error) throw new Error(`Supabase recordReputation failed: ${error.message}`);
@@ -70,6 +68,7 @@ export async function recordPayment(row: {
   to_agent_id: string;
   amount: string;
   tx_hash: string;
+  network: Network;
 }) {
   const { error } = await supabaseAdmin.from("payments").insert(row);
   if (error) throw new Error(`Supabase recordPayment failed: ${error.message}`);

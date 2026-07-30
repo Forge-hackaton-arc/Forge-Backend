@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-// createAgentWallet removed — hardcoded funded wallet used instead
 import { sendNanoPayment } from "@/lib/nanopayments";
 import { recordPayment } from "@/lib/supabase";
+import { getNetwork } from "@/lib/network";
 import type { NanoPaymentRequest, NanoPaymentResponse, ApiError } from "@/lib/types";
 
 const requestSchema = z.object({
@@ -13,6 +13,7 @@ const requestSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  const network = getNetwork(req);
   const body = await req.json();
   const parsed = requestSchema.safeParse(body);
   if (!parsed.success) {
@@ -39,6 +40,7 @@ export async function POST(req: NextRequest) {
       to_agent_id: data.toAgentId,
       amount: data.amountUsdc,
       tx_hash: result.txHash,
+      network,
     });
 
     return NextResponse.json<NanoPaymentResponse>({
