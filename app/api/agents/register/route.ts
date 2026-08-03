@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { executeContract, pollTransaction } from "@/lib/circleWallets";
-import { CONTRACTS } from "@/lib/addresses";
-import { decodeAgentIdFromReceipt } from "@/lib/contracts";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getNetwork } from "@/lib/network";
 import type { RegisterAgentResponse, ApiError } from "@/lib/types";
@@ -23,6 +20,9 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const { executeContract, pollTransaction } = await import("@/lib/circleWallets");
+    const { CONTRACTS } = await import("@/lib/addresses");
+    const { decodeAgentIdFromReceipt } = await import("@/lib/contracts");
     const wallet = { id: "bfa3da91-b3a2-5d2f-b787-11fb3b797174", address: "0x5ead0a430c89424909967ba23fd29f16d39563ff", blockchain: "ARC-TESTNET" };
 
     const { circleTransactionId } = await executeContract({

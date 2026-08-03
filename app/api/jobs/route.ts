@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { executeContract, pollTransaction } from "@/lib/circleWallets";
-import { CONTRACTS } from "@/lib/addresses";
-import { decodeJobIdFromReceipt } from "@/lib/contracts";
 import { supabaseAdmin, upsertJob } from "@/lib/supabase";
 import { getNetwork } from "@/lib/network";
 import type { CreateJobRequest, CreateJobResponse, ApiError, JobListItem } from "@/lib/types";
@@ -18,6 +15,9 @@ const requestSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  const { executeContract, pollTransaction } = await import("@/lib/circleWallets");
+  const { CONTRACTS } = await import("@/lib/addresses");
+  const { decodeJobIdFromReceipt } = await import("@/lib/contracts");
   const network = getNetwork(req);
   const body = await req.json();
   const parsed = requestSchema.safeParse(body);
@@ -33,13 +33,30 @@ export async function POST(req: NextRequest) {
     const clientWallet = { id: "749334cb-50a8-5508-b2eb-1f28d083d77d", address: "0xcf06a61700b1ea8eae6a87148473f4efec36088e", blockchain: "ARC-TESTNET" };
     const expiredAtUnix = Math.floor(new Date(data.expiresAt).getTime() / 1000);
 
+    // Contract expects a wallet address — resolve numeric agent IDs to their wallet address
+    let providerAddress = data.providerAgentId;
+    if (!/^0x[a-fA-F0-9]{40}$/.test(providerAddress)) {
+      const { data: agent } = await supabaseAdmin
+        .from("agents")
+        .select("wallet_address")
+        .eq("agent_id", data.providerAgentId)
+        .single();
+      if (!agent?.wallet_address) {
+        return NextResponse.json<ApiError>(
+          { error: "Job creation failed", detail: `No wallet address found for agent ${data.providerAgentId}` },
+          { status: 400 }
+        );
+      }
+      providerAddress = agent.wallet_address;
+    }
+
     const { circleTransactionId } = await executeContract({
       walletId: clientWallet.id,
       contractAddress: CONTRACTS[network].agenticCommerce,
       abiFunctionSignature: "createJob(address,address,uint256,string,address)",
       abiParameters: [
-        data.providerAgentId,
-        data.evaluatorAddress,
+        providerAddress,
+        clientWallet.address, // evaluator must be the same wallet that calls complete()
         expiredAtUnix,
         data.description,
         "0x0000000000000000000000000000000000000000",

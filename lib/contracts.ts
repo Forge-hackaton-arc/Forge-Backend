@@ -18,7 +18,7 @@ export const publicClient = createPublicClient({
 
 export async function getJob(jobId: bigint) {
   return publicClient.readContract({
-    address: CONTRACTS.agenticCommerce as `0x${string}`,
+    address: CONTRACTS.testnet.agenticCommerce as `0x${string}`,
     abi: AgenticCommerceAbi,
     functionName: "getJob",
     args: [jobId],
@@ -27,7 +27,7 @@ export async function getJob(jobId: bigint) {
 
 export async function getOwnerOf(agentId: bigint) {
   return publicClient.readContract({
-    address: CONTRACTS.identityRegistry as `0x${string}`,
+    address: CONTRACTS.testnet.identityRegistry as `0x${string}`,
     abi: IdentityRegistryAbi,
     functionName: "ownerOf",
     args: [agentId],

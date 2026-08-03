@@ -3,6 +3,7 @@ import { z } from "zod";
 import { keccak256, toBytes } from "viem";
 import { executeContract, pollTransaction } from "@/lib/circleWallets";
 import { CONTRACTS } from "@/lib/addresses";
+import { getNetwork } from "@/lib/network";
 import { supabaseAdmin, recordDeliverable } from "@/lib/supabase";
 import type { SubmitDeliverableResponse, ApiError } from "@/lib/types";
 
@@ -11,6 +12,7 @@ const requestSchema = z.object({
 });
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+  const network = getNetwork(req);
   const body = await req.json();
   const parsed = requestSchema.safeParse(body);
   if (!parsed.success) {
@@ -30,7 +32,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     const { circleTransactionId } = await executeContract({
       walletId: providerWallet.id,
-      contractAddress: CONTRACTS.agenticCommerce,
+      contractAddress: CONTRACTS[network].agenticCommerce,
       abiFunctionSignature: "submit(uint256,bytes32,bytes)",
       abiParameters: [jobId, deliverableHash, "0x"],
     });

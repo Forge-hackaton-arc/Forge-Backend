@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { sendNanoPayment } from "@/lib/nanopayments";
-import { recordPayment } from "@/lib/supabase";
+import { recordPayment, supabaseAdmin } from "@/lib/supabase";
 import { getNetwork } from "@/lib/network";
 import type { NanoPaymentRequest, NanoPaymentResponse, ApiError } from "@/lib/types";
 
@@ -28,9 +28,26 @@ export async function POST(req: NextRequest) {
     // TEMP: hardcoded funded wallet for testing. Replace with per-agent wallet lookup before demo.
     const senderWallet = { id: "bfa3da91-b3a2-5d2f-b787-11fb3b797174", address: "0x5ead0a430c89424909967ba23fd29f16d39563ff", blockchain: "ARC-TESTNET" };
 
+    // Resolve agent ID to wallet address — Circle requires a real wallet address
+    let toAddress = data.toAgentId;
+    if (!/^0x[a-fA-F0-9]{40}$/.test(toAddress)) {
+      const { data: agent } = await supabaseAdmin
+        .from("agents")
+        .select("wallet_address")
+        .eq("agent_id", data.toAgentId)
+        .single();
+      if (!agent?.wallet_address) {
+        return NextResponse.json<ApiError>(
+          { error: "Nanopayment failed", detail: `No wallet address found for agent ${data.toAgentId}` },
+          { status: 400 }
+        );
+      }
+      toAddress = agent.wallet_address;
+    }
+
     const result = await sendNanoPayment({
       fromWalletId: senderWallet.id,
-      toAddress: data.toAgentId,
+      toAddress,
       amountUsdc: data.amountUsdc,
       reason: data.reason,
     });
